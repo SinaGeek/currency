@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fa">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Prices Wallpaper</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet" />
+
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        font-family: "Vazirmatn", sans-serif;
+        font-size: 1.5em;
+        text-align: center;
+        padding-top: 5%;
+      }
+      #price-table {
+        margin: 0 auto;
+        width: 85%;
+        border-collapse: collapse;
+      }
+      #price-table th,
+      #price-table td {
+        padding: 15px;
+        border-bottom: 1px solid #444;
+      }
+      #price-table th {
+        text-transform: uppercase;
+        color: #888;
+        font-size: 0.8em;
+      }
+    </style>
+  </head>
+  <body dir="rtl">
+    <table id="price-table">
+      <thead>
+        <tr>
+          <th>عنوان</th>
+          <th>قیمت (تومان)</th>
+          <th>تغییر (تومان)</th>
+          <th>روند</th>
+        </tr>
+      </thead>
+      <tbody id="price-body">
+        <tr>
+          <td colspan="4">...در حال بارگذاری قیمت‌ها</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <script>
+      // --- SCRIPT MODIFIED TO CALCULATE CHANGE ---
+
+      const itemsToDisplay = [
+        { name: "دلار آمریکا", jsonKey: "usd1" },
+        { name: "یورو", jsonKey: "eur1" },
+        { name: "درهم امارات", jsonKey: "aed1" },
+        { name: "لیر ترکیه", jsonKey: "try1" },
+        { name: "انس جهانی طلا", jsonKey: "ounce", isDollar: true },
+        { name: "طلای 18 عیار", jsonKey: "gol18" },
+        { name: "سکه امامی", jsonKey: "emami1" },
+        { name: "سکه بهار آزادی", jsonKey: "azadi1" },
+        { name: "بیت‌کوین (دلار)", jsonKey: "bitcoin", isDollar: true },
+      ];
+
+      // MODIFIED: API URL points to the new endpoint
+      const apiUrl = "/api/prices";
+      const priceBody = document.getElementById("price-body");
+
+      function formatPrice(priceStr, isDollar = false) {
+        const priceNum = parseFloat(priceStr);
+        if (isNaN(priceNum)) return "N/A";
+        const prefix = isDollar ? "$ " : "";
+        return prefix + priceNum.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      }
+
+      function updatePrices() {
+        fetch(apiUrl)
+          .then((response) => response.json())
+          .then((data) => {
+            const currentPrices = data.current;
+            const previousPrices = data.previous;
+            let tableRowsHTML = "";
+
+            itemsToDisplay.forEach((item) => {
+              const currentPriceStr = currentPrices[item.jsonKey];
+              const previousPriceStr = previousPrices[item.jsonKey];
+
+              // Default values
+              let changeFormatted = "N/A";
+              let trendIcon = "-";
+              let changeColorStyle = "";
+
+              // Only calculate if both prices are valid numbers
+              const currentPrice = parseFloat(currentPriceStr);
+              const previousPrice = parseFloat(previousPriceStr);
+
+              if (!isNaN(currentPrice) && !isNaN(previousPrice)) {
+                const changeRaw = currentPrice - previousPrice;
+
+                if (changeRaw > 0) {
+                  changeColorStyle = 'style="color: #089981;"'; // Green
+                  trendIcon = "▲";
+                } else if (changeRaw < 0) {
+                  changeColorStyle = 'style="color: #f23645;"'; // Red
+                  trendIcon = "▼";
+                }
+
+                changeFormatted = changeRaw.toLocaleString("en-US", { signDisplay: "always" });
+              }
+
+              const priceFormatted = formatPrice(currentPriceStr, item.isDollar);
+
+              tableRowsHTML += `
+                            <tr>
+                                <td>${item.name}</td>
+                                <td ${changeColorStyle}>${priceFormatted}</td>
+                                <td ${changeColorStyle}>${changeFormatted}</td>
+                                <td ${changeColorStyle}>${trendIcon}</td>
+                            </tr>
+                        `;
+            });
+
+            priceBody.innerHTML = tableRowsHTML;
+          })
+          .catch((error) => {
+            priceBody.innerHTML = `<tr><td colspan="4">خطا در بارگذاری قیمت‌ها</td></tr>`;
+            console.error("Error fetching prices:", error);
+          });
+      }
+
+      updatePrices();
+      setInterval(updatePrices, 60000);
+    </script>
+  </body>
+</html>
