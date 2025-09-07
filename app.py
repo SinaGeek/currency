@@ -6,13 +6,12 @@ import shutil
 from flask import Flask, render_template, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# --- Configuration (Simplified for root directory) ---
+# --- Configuration ---
 DATA_DIR = 'data'
 CURRENT_PRICES_FILE = os.path.join(DATA_DIR, 'Prices_Current.json')
 PREVIOUS_DAY_FILE = os.path.join(DATA_DIR, 'Prices_Previous.json')
 NEW_PRICES_FILE = os.path.join(DATA_DIR, 'new.json')
 
-# Flask will now correctly find the 'templates' folder by default
 app = Flask(__name__)
 
 # --- Data Fetching ---
@@ -85,7 +84,12 @@ def update_current_prices():
             json.dump(current_prices, f, indent=4)
         print("✅ Current prices file updated with all valid values from raw data.")
 
-# --- API endpoint ---
+# --- Flask Routes ---
+
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
 @app.route('/api/prices')
@@ -103,12 +107,18 @@ def get_prices():
 
     return jsonify({"current": current_data, "previous": previous_day_data})
 
-# --- Other Flask Routes & Main Execution ---
+# --- NEW: Endpoint to get only current prices ---
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+@app.route('/get')
+def get_current_prices():
+    """A simple endpoint to get only the current prices."""
+    try:
+        with open(CURRENT_PRICES_FILE, 'r') as f:
+            current_data = json.load(f)
+        return jsonify(current_data)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return jsonify({"error": "Current prices file not found or is invalid."}), 404
 
 
 @app.route('/trigger-update', methods=['POST'])
@@ -118,6 +128,7 @@ def trigger_update():
     return jsonify({"message": "Update process completed."})
 
 
+# --- Main Execution Block ---
 if __name__ == '__main__':
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(func=update_current_prices,
