@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fa">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Prices Wallpaper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        font-family: "Vazirmatn", sans-serif;
+        font-size: 1.5em;
+        text-align: center;
+        padding: 2% 0;
+      }
+      .top-bar {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 10px;
+        margin-bottom: 10px;
+      }
+      .top-bar #update-btn {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .top-bar #status {
+        margin: 0;
+      }
+      #price-table {
+        margin: 20px auto;
+        width: 85%;
+        border-collapse: collapse;
+      }
+      #price-table th,
+      #price-table td {
+        padding: 15px;
+        border-bottom: 1px solid #444;
+      }
+      #price-table th {
+        text-transform: uppercase;
+        color: #888;
+        font-size: 0.8em;
+      }
+      #status {
+        font-size: 0.8em;
+        color: #bbb;
+        margin: 0;
+      }
+      #update-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 0.8em;
+        font-family: "Vazirmatn", sans-serif;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      #update-btn:hover {
+        background-color: #0056b3;
+      }
+      #update-btn:disabled {
+        background-color: #555;
+        cursor: not-allowed;
+      }
+      .dropdown {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 10;
+      }
+      .hamburger-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 10px;
+      }
+      .hamburger-btn .line {
+        display: block;
+        width: 30px;
+        height: 3px;
+        background-color: #fff;
+        margin: 6px 0;
+        transition: 0.4s;
+      }
+      .hamburger-btn.active .line1 {
+        transform: rotate(-45deg) translate(-7px, 7px);
+      }
+      .hamburger-btn.active .line2 {
+        opacity: 0;
+      }
+      .hamburger-btn.active .line3 {
+        transform: rotate(45deg) translate(-7px, -7px);
+      }
+      .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #1a1a1a;
+        min-width: 220px;
+        max-height: 70vh;
+        overflow-y: auto;
+        box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+        border-radius: 8px;
+        padding: 15px;
+        text-align: right;
+      }
+      .dropdown-content.show {
+        display: block;
+      }
+      .dropdown-content div {
+        display: flex;
+        align-items: center;
+        padding: 5px 0;
+      }
+      .dropdown-content label {
+        font-size: 0.8em;
+        cursor: pointer;
+        user-select: none;
+        margin-right: 10px;
+      }
+      .dropdown-content input {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body dir="rtl">
+    <div class="top-bar">
+      <button id="update-btn">بروزرسانی</button>
+      <div id="status">آخرین بروزرسانی: N/A</div>
+    </div>
+    <div class="dropdown">
+      <button class="hamburger-btn" id="dropdown-btn">
+        <span class="line line1"></span>
+        <span class="line line2"></span>
+        <span class="line line3"></span>
+      </button>
+      <div class="dropdown-content" id="currency-selector"></div>
+    </div>
+
+    <table id="price-table">
+      <thead>
+        <tr>
+          <th>عنوان</th>
+          <th>قیمت فروش (Ask)</th>
+          <th>تغییر روزانه</th>
+          <th>روند</th>
+        </tr>
+      </thead>
+      <tbody id="price-body"></tbody>
+    </table>
+
+    <div id="timestamps" style="font-size: 0.8em; color: #888; margin: 10px 0"></div>
+
+    <script>
+      const AVAILABLE_CURRENCIES = [
+        { key: "usd1", name: "دلار آمریکا", default: true },
+        { key: "eur1", name: "یورو", default: true },
+        { key: "gbp1", name: "پوند بریتانیا", default: false },
+        { key: "aed1", name: "درهم امارات", default: true },
+        { key: "try1", name: "لیر ترکیه", default: true },
+        { key: "chf1", name: "فرانک سوئیس", default: false },
+        { key: "cad1", name: "دلار کانادا", default: false },
+        { key: "aud1", name: "دلار استرالیا", default: false },
+        { key: "cny1", name: "یوان چین", default: false },
+        { key: "jpy1", name: "ین ژاپن", default: false },
+        { key: "emami1", name: "سکه امامی", default: true },
+        { key: "azadi1", name: "سکه بهار آزادی", default: true },
+        { key: "azadi1_2", name: "نیم سکه", default: false },
+        { key: "azadi1_4", name: "ربع سکه", default: false },
+        { key: "gol18", name: "طلای ۱۸ عیار", default: true },
+        { key: "mithqal", name: "مثقال طلا", default: false },
+        { key: "ounce", name: "انس جهانی طلا", isDollar: true, default: true },
+        { key: "bitcoin", name: "بیت‌کوین", isDollar: true, default: true },
+        { key: "sar1", name: "ریال عربستان", default: false },
+        { key: "rub1", name: "روبل روسیه", default: false },
+        { key: "inr1", name: "روپیه هند", default: false },
+        { key: "afn1", name: "افغانی افغانستان", default: false },
+        { key: "iqd1", name: "دینار عراق", default: false },
+        { key: "kwd1", name: "دینار کویت", default: false },
+        { key: "omr1", name: "ریال عمان", default: false },
+        { key: "bhd1", name: "دینار بحرین", default: false },
+        { key: "qar1", name: "ریال قطر", default: false },
+        { key: "azn1", name: "منات آذربایجان", default: false },
+        { key: "amd1", name: "درام ارمنستان", default: false },
+        { key: "sgd1", name: "دلار سنگاپور", default: false },
+        { key: "myr1", name: "رینگیت مالزی", default: false },
+        { key: "thb1", name: "بات تایلند", default: false },
+        { key: "hkd1", name: "دلار هنگ کنگ", default: false },
+        { key: "dkk1", name: "کرون دانمارک", default: false },
+        { key: "sek1", name: "کرون سوئد", default: false },
+        { key: "nok1", name: "کرون نروژ", default: false },
+      ];
+
+      const apiUrl = "/api/prices";
+      const priceBody = document.getElementById("price-body");
+      const statusDiv = document.getElementById("status");
+      const updateBtn = document.getElementById("update-btn");
+      const currencySelector = document.getElementById("currency-selector");
+      const dropdownBtn = document.getElementById("dropdown-btn");
+
+      function setupCheckboxes() {
+        let savedSettings = JSON.parse(localStorage.getItem("currencySettings"));
+        AVAILABLE_CURRENCIES.forEach((currency) => {
+          let isChecked = savedSettings ? savedSettings[currency.key] : currency.default;
+          const wrapper = document.createElement("div");
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = currency.key;
+          checkbox.value = currency.key;
+          checkbox.checked = isChecked;
+          const label = document.createElement("label");
+          label.htmlFor = currency.key;
+          label.textContent = currency.name;
+          wrapper.appendChild(label);
+          wrapper.appendChild(checkbox);
+          currencySelector.appendChild(wrapper);
+        });
+      }
+
+      function saveCheckboxSettings() {
+        const settings = {};
+        document.querySelectorAll("#currency-selector input").forEach((checkbox) => {
+          settings[checkbox.value] = checkbox.checked;
+        });
+        localStorage.setItem("currencySettings", JSON.stringify(settings));
+      }
+
+      function formatPrice(priceStr, isDollar = false) {
+        const priceNum = parseFloat(priceStr);
+        if (isNaN(priceNum)) return "N/A";
+        const prefix = isDollar ? "$ " : "";
+        return prefix + priceNum.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      }
+
+      // --- REVISED: New calculation logic for the Change column ---
+      function refreshTable() {
+        const selectedKeys = Array.from(document.querySelectorAll("#currency-selector input:checked")).map((cb) => cb.value);
+        fetch(apiUrl)
+          .then((response) => {
+            if (!response.ok) throw new Error("Network error");
+            return response.json();
+          })
+          .then((data) => {
+            const currentPrices = data.current;
+            const previousPrices = data.previous;
+            let tableRowsHTML = "";
+            // Always attempt to render; show N/A where data is missing
+            const itemsToDisplay = AVAILABLE_CURRENCIES.filter((c) => selectedKeys.includes(c.key));
+            if (itemsToDisplay.length === 0) {
+              priceBody.innerHTML = `<tr><td colspan="4">هیچ موردی برای نمایش انتخاب نشده است.</td></tr>`;
+              return;
+            }
+            itemsToDisplay.forEach((item) => {
+              const currentPriceStr = currentPrices ? currentPrices[item.key] : undefined;
+              const previousPriceStr = previousPrices ? previousPrices[item.key] : undefined;
+              let changeFormatted = "N/A",
+                trendIcon = "-",
+                changeColorStyle = "";
+
+              const currentPrice = parseFloat(currentPriceStr);
+              const previousPrice = parseFloat(previousPriceStr);
+
+              if (!isNaN(currentPrice) && !isNaN(previousPrice) && previousPrice > 0) {
+                const absoluteChange = currentPrice - previousPrice;
+                const percentChange = (absoluteChange / previousPrice) * 100;
+
+                const formattedAbsChange = absoluteChange.toLocaleString("en-US", { signDisplay: "always" });
+                changeFormatted = `${formattedAbsChange} (${percentChange.toFixed(2)}%)`;
+
+                if (absoluteChange > 0) {
+                  changeColorStyle = 'style="color: #089981;"';
+                  trendIcon = "▲";
+                } else if (absoluteChange < 0) {
+                  changeColorStyle = 'style="color: #f23645;"';
+                  trendIcon = "▼";
+                }
+              }
+              const priceFormatted = formatPrice(currentPriceStr, item.isDollar);
+              tableRowsHTML += `
+                            <tr>
+                                <td>${item.name}</td> <td ${changeColorStyle}>${priceFormatted}</td>
+                                <td ${changeColorStyle}>${changeFormatted}</td> <td ${changeColorStyle}>${trendIcon}</td>
+                            </tr>
+                        `;
+            });
+            priceBody.innerHTML = tableRowsHTML;
+            statusDiv.textContent = `آخرین بروزرسانی: ${data.current_last_modified || "N/A"}`;
+            const tsDiv = document.getElementById("timestamps");
+            tsDiv.textContent = `زمان کنونی (current last_modified): ${data.current_last_modified || "N/A"} | زمان قبلی (previous last_modified): ${
+              data.previous_last_modified || "N/A"
+            }`;
+          })
+          .catch((error) => {
+            console.error("Error refreshing table:", error);
+            statusDiv.textContent = `آخرین بروزرسانی: N/A`;
+          });
+      }
+
+      function manualUpdate() {
+        updateBtn.disabled = true;
+        updateBtn.textContent = "در حال بروزرسانی...";
+        fetch("/trigger-update", { method: "POST" })
+          .then((response) => {
+            if (!response.ok) throw new Error("Trigger failed");
+            return response.json();
+          })
+          .then((data) => {
+            console.log(data.message);
+            refreshTable();
+          })
+          .catch((error) => {
+            console.error("Error triggering update:", error);
+            statusDiv.textContent = "فرآیند بروزرسانی با خطا مواجه شد.";
+          })
+          .finally(() => {
+            updateBtn.disabled = false;
+            updateBtn.textContent = "بروزرسانی";
+          });
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        setupCheckboxes();
+        refreshTable();
+        setInterval(refreshTable, 30000);
+        updateBtn.addEventListener("click", manualUpdate);
+        dropdownBtn.addEventListener("click", () => {
+          dropdownBtn.classList.toggle("active");
+          currencySelector.classList.toggle("show");
+        });
+        currencySelector.addEventListener("change", () => {
+          saveCheckboxSettings();
+          refreshTable();
+        });
+      });
+    </script>
+  </body>
+</html>
